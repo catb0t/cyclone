@@ -1,13 +1,13 @@
 # Makefile.inc.  Generated from Makefile.inc.in by configure.
-VERSION=0.8.2
+VERSION=1.0
 build=i686-pc-linux-gnu
 target=i686-pc-linux-gnu
 CC=gcc
 CFLAGS=-march=i686
 TARGET_CC=gcc -b i686-pc-linux-gnu
 TARGET_CFLAGS=-march=i686
-CYCDIR=/homes/gws/djg/code/cyclone
-prefix=/homes/gws/djg
+CYCDIR=/home/kjam/cyclone
+prefix=/usr/local
 exec_prefix=${prefix}
 INC_INSTALL=${prefix}/include/cyclone
 BIN_INSTALL=${exec_prefix}/bin
@@ -21,8 +21,17 @@ O=o
 LDFLAGS=
 SIZEOF_WCHAR_T=4
 WCHAR_T_UNSIGNED=0
+BANSHEE=/home/kjam/cyclone/banshee
+BANSHEEENGINEDIR=$(BANSHEE)/engine
+BANSHEEREGIONDIR=$(BANSHEE)/libcompat
 
-HAVE_PTHREAD=no
+HAVE_PTHREAD=yes
+HAVE_PCRE=no
+LIBPCRE=
+HAVE_SQLITE3=no
+LIBSQLITE3=
+HAVE_SSL=no
+LIBSSL=
 
 SHELL=/bin/sh
 A=a
@@ -61,6 +70,7 @@ CYCLONE_BOOT_LIBS:=ap\
 
 # other bits of the standard library
 CYCLONE_LIBS:=array\
+        base64\
         bitvec\
 	execinfo\
         getopt\
@@ -75,6 +85,7 @@ CYCLONE_H:=ap.h\
 	arg.h\
 	array.h\
 	assert.h\
+        base64.h\
 	binding.h\
 	bitvec.h\
 	buffer.h\
@@ -89,6 +100,8 @@ CYCLONE_H:=ap.h\
 	gc_ifc.h\
 	getopt.h\
 	hashtable.h\
+	interproc.h\
+	bansheeif.h\
 	iter.h\
 	lexing.h\
 	lineno.h\
@@ -108,24 +121,29 @@ CYCLONE_H:=ap.h\
 	xarray.h\
 	xp.h\
 	warn.h\
-        flags.h
+        flags.h\
+        lower.h\
+	subtype.h
+
+
+#need this in CYCLONE_SRCS
+BANSHEE_IF:=bansheeif
+BANSHEE_STUB:=bansheeif_stub
 
 CYCLONE_SRCS:=absyn\
 	 warn\
          flags\
- 	 kinds\
+         kinds\
          parse_tab\
          parse_errors\
          lex\
          absynpp\
 	 absyndump\
-	 rgnorder\
          tcenv\
 	 unify\
 	 attributes\
          tcutil\
          tctyp\
-         relations-ap\
          tcstmt\
          tcpat\
          tcexp\
@@ -135,7 +153,7 @@ CYCLONE_SRCS:=absyn\
          tc\
 	 currgn\
          binding\
-         pratt-ap\
+	 interproc\
          jump_analysis\
          cf_flowinfo\
          new_control_flow\
@@ -152,8 +170,10 @@ CYCLONE_SRCS:=absyn\
 	 rename_temps\
 	 remove_casts\
          interface\
+	 subtype\
 	 cifc\
 	 tcdecl\
+         lower\
          port\
          specsfile\
 	 cyclone
@@ -170,8 +190,6 @@ CYCDOC_SRCS:=cycdoc\
 	tcutil\
 	kinds\
 	tctyp\
-	rgnorder\
-        relations-ap\
 	tcenv\
 	tcexp\
 	currgn\
@@ -183,7 +201,6 @@ CYCDOC_SRCS:=cycdoc\
 	toc\
 	cifc\
 	tcdecl\
-        pratt-ap\
         jump_analysis\
 	new_control_flow\
         assndef\
@@ -193,7 +210,9 @@ CYCDOC_SRCS:=cycdoc\
 	cf_flowinfo\
 	formatstr\
 	evexp\
-	absynpp
+	subtype\
+	absynpp\
+	$(BANSHEE_STUB)
 
 BUILDLIB_SRCS:=buildlib\
         specsfile\
@@ -208,7 +227,6 @@ BUILDLIB_SRCS:=buildlib\
 	tcutil\
 	tctyp\
 	absynpp\
-        relations-ap\
         callgraph\
 	tc\
 	cifc\
@@ -219,10 +237,8 @@ BUILDLIB_SRCS:=buildlib\
 	tcstmt\
 	formatstr\
 	evexp\
-	rgnorder\
 	tcenv\
 	tcpat\
-        pratt-ap\
         jump_analysis\
 	new_control_flow\
 	assndef\
@@ -231,9 +247,13 @@ BUILDLIB_SRCS:=buildlib\
 	insert_checks\
 	cf_flowinfo\
         toc\
-	absyn
+	subtype\
+	absyn\
+	$(BANSHEE_STUB)
 
-NOOPT_SRCS:= #parse_tab parse_tab_a parse_tab_pg
+# We can't optimize these files because the use try/catch and GCC 4.x
+# and our implementation of try/catch do not get along.
+NOOPT_SRCS:= parse_tab parse_tab_a parse_tab_pg pratt_prover binding callgraph cifc cyclone interface tc tcenv tcexp tcpat tctyp tcutil toc unify
 
 # Add XML library .h files to CYCLONE_H
 ifndef NO_XML_LIB
@@ -251,17 +271,20 @@ RUNTIME:=runtime_cyc \
 CYCLIB:=libcyc.$(A)
 CYCBOOTLIB:=libcycboot.$(A)
 CYCCOMP:=cyclone$(EXE)
+CYCINFCOMP:=cyclone-inf$(EXE)
 
-C_SRCS:=$(addsuffix .c, $(CYCLONE_SRCS))
+C_SRCS:=$(addsuffix .c, $(CYCLONE_SRCS) $(BANSHEE_STUB) $(BANSHEE_IF))
 C_BOOT_LIBS:=$(addsuffix .c, $(CYCLONE_BOOT_LIBS))
 C_LIBS:=$(addsuffix .c, $(CYCLONE_LIBS))
-O_SRCS:=$(addsuffix .$(O), $(CYCLONE_SRCS))
+O_SRCS:=$(addsuffix .$(O), $(CYCLONE_SRCS) $(BANSHEE_STUB))
+BANSHEE_O_SRCS:=$(addsuffix .$(O), $(CYCLONE_SRCS) $(BANSHEE_IF))
+ALL_O_SRCS:=$(addsuffix .$(O), $(CYCLONE_SRCS) $(BANSHEE_STUB) $(BANSHEE_IF))
 O_BOOT_LIBS:=$(addsuffix .$(O), $(CYCLONE_BOOT_LIBS))
 O_LIBS:=$(addsuffix .$(O), $(CYCLONE_LIBS))
-A_SRCS:=$(addsuffix _a.$(O), $(CYCLONE_SRCS))
+A_SRCS:=$(addsuffix _a.$(O), $(CYCLONE_SRCS) $(BANSHEE_STUB))
 A_BOOT_LIBS:=$(addsuffix _a.$(O), $(CYCLONE_BOOT_LIBS))
 A_LIBS:=$(addsuffix _a.$(O), $(CYCLONE_LIBS))
-PG_SRCS:=$(addsuffix _pg.$(O), $(CYCLONE_SRCS))
+PG_SRCS:=$(addsuffix _pg.$(O), $(CYCLONE_SRCS) $(BANSHEE_STUB))
 PG_BOOT_LIBS:=$(addsuffix _pg.$(O), $(CYCLONE_BOOT_LIBS))
 PG_LIBS:=$(addsuffix _pg.$(O), $(CYCLONE_LIBS))
 NOCHECK_BOOT_LIBS:=$(addsuffix _nocheck.$(O), $(CYCLONE_BOOT_LIBS))
@@ -273,4 +296,4 @@ PG_RUNTIME:=$(addsuffix _pg.$(O), $(RUNTIME))
 O_NOOPT_SRCS:=$(addsuffix .$(O),$(NOOPT_SRCS))
 OPTFLAG:=-O
 
-UPDATE_SRCS:=$(addsuffix .c, $(CYCLONE_SRCS) cycdoc buildlib)
+UPDATE_SRCS:=$(addsuffix .c, $(CYCLONE_SRCS) $(BANSHEE_STUB) $(BANSHEE_IF) cycdoc buildlib)
