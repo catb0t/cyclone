@@ -474,14 +474,17 @@ and slurp = parse /* returns 1 if more to do, 0 if all done */
 | "__attribute__" ws* "((__nothrow__))"
 { log("Warning: use of __attribute__((__nothrow__)) deleted\n");
   return 1; }
+| "__attribute__" ws* "((__nothrow__ , __leaf__))"
+{ log("Warning: use of __attribute__((__nothrow__ , __leaf__)) deleted\n");
+  return 1; }
 | "__attribute__" ws* "((__pure__))"
 { log("Warning: use of __attribute__((__pure__)) deleted\n");
   return 1; }
 | "__attribute__" ws* "((__transparent_union__))"
 { log("Warning: use of __attribute__((__transparent_union__)) deleted\n");
   return 1; }
-| "__attribute__" ws* "((" ("__format__" | "format") ws* "(" [^')'].* ")" ws* "))"
-{ log("Warning: use of unknown __attribute__((format(...))) deleted\n");
+| "__attribute__" ws* "((" ("__format__" | "format") ws* "(" [^')']* ")" ws* "))"
+{ log("Warning: use of __attribute__((format(...))) deleted\n");
   return 1; }
 | "__inline__" /* Used in cygwin in stdio.h */
 { fputs("inline",(FILE @)slurp_out); return 1; }
